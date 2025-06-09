@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: springapp
+  namespace: test-ns
+spec:
+  selector:
+    matchLabels:
+      app: springapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: springapp
+    spec:
+      containers:
+      - name: springapp
+        image: kalyankumar2025/springboot-mongo-app:$BUILD_NUMBER
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        env:
+        - name: MONGO_DB_HOSTNAME
+          value: mongodbsvc
+        - name: MONGO_DB_USERNAME
+          value: proddb
+        - name: MONGO_DB_PASSWORD
+          value: proddb@123
+---
+apiVersion: v1
+kind: Service
+metadata:
+ name: springappsvc
+ namespace: test-ns
+spec:
+ type: NodePort
+ selector:
+  app: springapp
+ ports:
+ - port: 80
+   targetPort: 8080
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: mongodb
+  namespace: test-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: proddb
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              value: proddb@123
+          resources:
+            requests:
+              cpu: 300m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 5
+          volumeMounts:
+          - name: mongovol
+            mountPath: /data/db
+      volumes:
+      - name: mongovol
+        persistentVolumeClaim:
+          claimName: mongopvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongopvc
+  namespace: test-ns
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodbsvc
+  namespace: test-ns
+spec:
+  type: ClusterIP
+  selector:
+    app: mongo
+  ports:
+    - port: 27017
+      targetPort: 27017
