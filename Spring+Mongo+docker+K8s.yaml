@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: springapp
-        image: kalyankumar2025/springboot-mongo-app:"$BUILD_NUMBER"
+        image: kalyankumar2025/springboot-mongo-app:${BUILD_NUMBER}
         ports:
         - containerPort: 8080
         resources:
